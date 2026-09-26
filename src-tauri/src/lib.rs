@@ -43,6 +43,10 @@ fn open_default_apps() -> Result<(), String> {
     platform::open_default_apps()
 }
 #[tauri::command]
+fn register_handlers() -> Result<(), String> {
+    platform::register_handlers()
+}
+#[tauri::command]
 fn detect_browsers(state: State<AppState>) -> Result<Vec<Browser>, String> {
     let found = discovery::detect();
     {
@@ -339,6 +343,7 @@ pub fn run(start_url: Option<String>) {
             get_config,
             get_platform_status,
             open_default_apps,
+            register_handlers,
             detect_browsers,
             save_rule,
             delete_rule,

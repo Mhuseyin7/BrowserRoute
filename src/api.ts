@@ -4,6 +4,7 @@ export const api = {
   config: () => invoke<Config>("get_config"),
   platform: () => invoke<{ platform: string; canRegister: boolean; detail: string }>("get_platform_status"),
   defaults: () => invoke<void>("open_default_apps"),
+  registerHandlers: () => invoke<void>("register_handlers"),
   detect: () => invoke<Browser[]>("detect_browsers"),
   saveRule: (rule: Rule) => invoke<void>("save_rule", { rule }),
   deleteRule: (id: string) => invoke<void>("delete_rule", { id }),
