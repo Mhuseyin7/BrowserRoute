@@ -21,7 +21,7 @@ localhost:3000           → Chrome / Development
 *.company.com            → Microsoft Edge / Work
 ```
 
-Rule eşleşmezse app, future chooser workflow için güvenli bir fallback sonucu üretir. Rule simulator ile bir URL’nin neden ve hangi priority ile eşleştiğini browser açmadan inceleyebilirsiniz.
+Rule eşleşmezse app, hızlı bir browser chooser açar; seçiminizi yalnızca bir kez veya domain için kalıcı olarak kaydedebilirsiniz. Rule simulator ile bir URL’nin neden ve hangi priority ile eşleştiğini browser açmadan inceleyebilirsiniz.
 
 ## Features
 
@@ -35,6 +35,9 @@ Rule eşleşmezse app, future chooser workflow için güvenli bir fallback sonuc
 - **Local-only history** — varsayılan olarak yalnızca host, selected browser ve timestamp saklanır.
 - **Atomic config** — versioned JSON config, backup ve corrupt-config recovery.
 - **Modern desktop UI** — Overview, Rules, Browsers, History, Simulator ve Settings screens.
+- **Fallback chooser** — eşleşmeyen URL’lerde browser/profile/private-window seçimi ve “remember for domain”.
+- **CLI** — `browserroute open`, `test`, `rules list` ve `rules export` commands.
+- **Tray workflow** — routing pause, settings window ve quit actions.
 
 ## Screens and workflow
 
@@ -66,6 +69,15 @@ git clone https://github.com/Mhuseyin7/BrowserRoute.git
 cd BrowserRoute
 npm install
 npm run tauri dev
+```
+
+### CLI
+
+```bash
+browserroute open https://github.com/company/project
+browserroute test https://github.com/company/project
+browserroute rules list
+browserroute rules export > browserroute-rules.json
 ```
 
 ### Validation commands
@@ -128,8 +140,8 @@ Detaylar için [PRIVACY.md](PRIVACY.md) ve [SECURITY.md](SECURITY.md) dosyaları
 | Platform | Current support | Notlar |
 | --- | --- | --- |
 | Windows 10/11 | Browser detection, profile detection, native build | Default HTTP/HTTPS association Windows tarafından user confirmation ile seçilir. |
-| macOS | Native Tauri build target | Launch Services integration packaged release aşamasında tamamlanmalıdır. |
-| Linux desktop | Native Tauri build target | XDG MIME / `x-scheme-handler` registration packaged release aşamasında tamamlanmalıdır. |
+| macOS | Browser discovery, native Tauri build target | Launch Services association installer bundle tarafından user confirmation ile tamamlanır. |
+| Linux desktop | PATH-based browser discovery, native Tauri build target | XDG MIME / `x-scheme-handler` association desktop package tarafından user confirmation ile tamamlanır. |
 
 BrowserRoute, OS güvenlik modelini aşarak default browser’ı sessizce değiştirmeye çalışmaz. Uygulama ilgili Default Apps / system settings ekranına yönlendirir.
 
@@ -146,7 +158,7 @@ Architecture detayları için [ARCHITECTURE.md](ARCHITECTURE.md) dosyasını inc
 
 ## Project status
 
-Bu repository aktif bir MVP foundation içerir. Rule engine, safe launch boundary, local persistence, browser discovery ve settings interface çalışır durumdadır. Packaged installer-level protocol registration, tray background service, advanced chooser ve release signing bir sonraki release phases içindir.
+Bu repository günlük kullanım için çalışan bir desktop release foundation içerir. Rule engine, safe launch boundary, local persistence, cross-platform browser discovery, CLI, tray pause workflow, fallback chooser ve settings interface çalışır durumdadır. Installer signing ve mağaza dağıtımı ayrı release engineering adımlarıdır.
 
 ## Contributing
 
