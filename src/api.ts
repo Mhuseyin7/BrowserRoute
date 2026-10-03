@@ -10,6 +10,7 @@ export const api = {
   saveRule: (rule: Rule) => invoke<void>("save_rule", { rule }),
   deleteRule: (id: string) => invoke<void>("delete_rule", { id }),
   simulate: (raw: string) => invoke<Simulation>("simulate_url", { raw }),
+  routeUrl: (raw: string) => invoke<unknown>("route_url", { raw }),
   conflicts: (rule: Rule) => invoke<Rule[]>("find_conflicts", { rule }),
   launchChoice: (raw: string, browserId: string, profile: string | undefined, privateWindow: boolean, remember: boolean) => invoke<void>("launch_choice", { raw, browserId, profile, private: privateWindow, remember }),
   export: (fullBackup = false) => invoke<string>("export_rules", { fullBackup })
