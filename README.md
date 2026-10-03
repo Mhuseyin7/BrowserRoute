@@ -171,6 +171,10 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Lütfen yeni rule behavior’ları için focused unit test ekleyin. Automated test’ler gerçek browser’ı açmamalı; fake executable veya argument-level test kullanılmalıdır.
 
+## License
+
+BrowserRoute is released under the [MIT License](LICENSE). Herkes source code’u inceleyebilir, değiştirebilir, fork’layabilir, dağıtabilir ve kendi project’lerinde kullanabilir. Değişiklikleri upstream project’e göndermek için pull request açabilirsiniz.
+
 ## Documentation
 
 - [Architecture](ARCHITECTURE.md)
