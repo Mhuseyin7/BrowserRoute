@@ -383,4 +383,62 @@ mod tests {
             Err(RouteError::DisallowedScheme)
         ));
     }
+    #[test]
+    fn domain_suffix_matches_subdomains_only() {
+        let suffix = Condition::DomainSuffix {
+            value: "company.test".into(),
+        };
+        assert!(condition_matches(
+            &suffix,
+            &parse_routable_url("https://app.company.test").unwrap()
+        ));
+        assert!(condition_matches(
+            &suffix,
+            &parse_routable_url("https://company.test").unwrap()
+        ));
+        assert!(!condition_matches(
+            &suffix,
+            &parse_routable_url("https://notcompany.test").unwrap()
+        ));
+    }
+    #[test]
+    fn port_condition_uses_known_default_ports() {
+        let https = Condition::Port { value: 443 };
+        assert!(condition_matches(
+            &https,
+            &parse_routable_url("https://company.test").unwrap()
+        ));
+        let dev = Condition::Port { value: 3000 };
+        assert!(condition_matches(
+            &dev,
+            &parse_routable_url("http://localhost:3000").unwrap()
+        ));
+    }
+    #[test]
+    fn browser_arguments_are_structured() {
+        let browser = Browser {
+            id: "chrome".into(),
+            name: "Chrome".into(),
+            executable: "chrome.exe".into(),
+            kind: BrowserKind::Chrome,
+            profiles: vec![],
+        };
+        let action = RouteAction {
+            browser_id: "chrome".into(),
+            profile: Some("Work".into()),
+            private: true,
+        };
+        assert_eq!(
+            launch_arguments(
+                &action,
+                &browser,
+                &parse_routable_url("https://example.test").unwrap()
+            ),
+            vec![
+                "--profile-directory=Work",
+                "--incognito",
+                "https://example.test/"
+            ]
+        );
+    }
 }
