@@ -7,6 +7,7 @@ export const api = {
   registerHandlers: () => invoke<void>("register_handlers"),
   saveSettings: (settings: Config["settings"]) => invoke<void>("save_settings", { settings }),
   detect: () => invoke<Browser[]>("detect_browsers"),
+  addCustom: (name: string, executable: string) => invoke<Browser>("add_custom_browser", { name, executable }),
   saveRule: (rule: Rule) => invoke<void>("save_rule", { rule }),
   deleteRule: (id: string) => invoke<void>("delete_rule", { id }),
   simulate: (raw: string) => invoke<Simulation>("simulate_url", { raw }),

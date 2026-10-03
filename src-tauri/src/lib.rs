@@ -70,6 +70,39 @@ fn detect_browsers(state: State<AppState>) -> Result<Vec<Browser>, String> {
     Ok(found)
 }
 #[tauri::command]
+fn add_custom_browser(
+    name: String,
+    executable: String,
+    state: State<AppState>,
+) -> Result<Browser, String> {
+    let path = std::path::PathBuf::from(&executable);
+    if name.trim().is_empty() {
+        return Err("Browser name cannot be empty".into());
+    }
+    if !path.is_file() {
+        return Err("Executable path does not point to a file".into());
+    }
+    let browser = Browser {
+        id: format!("custom-{}", uuid::Uuid::new_v4()),
+        name,
+        executable,
+        kind: core::BrowserKind::Custom,
+        profiles: vec![core::BrowserProfile {
+            id: "default".into(),
+            name: "Default".into(),
+            path: None,
+        }],
+    };
+    state
+        .config
+        .lock()
+        .map_err(|_| "configuration lock poisoned")?
+        .browsers
+        .push(browser.clone());
+    persist(&state)?;
+    Ok(browser)
+}
+#[tauri::command]
 fn save_rule(rule: Rule, state: State<AppState>) -> Result<(), String> {
     validate_rule(&rule).map_err(|e| e.to_string())?;
     {
@@ -356,6 +389,7 @@ pub fn run(start_url: Option<String>) {
             register_handlers,
             save_settings,
             detect_browsers,
+            add_custom_browser,
             save_rule,
             delete_rule,
             simulate_url,
