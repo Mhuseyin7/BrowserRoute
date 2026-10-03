@@ -104,3 +104,74 @@ pub fn register_handlers() -> Result<(), String> {
         Ok(())
     }
 }
+
+pub fn set_launch_at_login(enabled: bool) -> Result<(), String> {
+    let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "windows")]
+    {
+        let key = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+        if enabled {
+            let value = format!("\"{}\"", executable.to_string_lossy().replace('"', ""));
+            std::process::Command::new("reg.exe")
+                .args([
+                    "ADD",
+                    key,
+                    "/v",
+                    "BrowserRoute",
+                    "/t",
+                    "REG_SZ",
+                    "/d",
+                    &value,
+                    "/f",
+                ])
+                .status()
+                .map_err(|e| e.to_string())
+                .and_then(|s| {
+                    if s.success() {
+                        Ok(())
+                    } else {
+                        Err("could not enable Windows startup".into())
+                    }
+                })
+        } else {
+            std::process::Command::new("reg.exe")
+                .args(["DELETE", key, "/v", "BrowserRoute", "/f"])
+                .status()
+                .map_err(|e| e.to_string())
+                .map(|_| ())
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let path = dirs::home_dir()
+            .unwrap_or_default()
+            .join("Library/LaunchAgents/com.muhammedkoca.browserroute.plist");
+        if enabled {
+            let plist = format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>Label</key><string>com.muhammedkoca.browserroute</string><key>ProgramArguments</key><array><string>{}</string></array><key>RunAtLoad</key><true/></dict></plist>", executable.to_string_lossy());
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+            std::fs::write(path, plist).map_err(|e| e.to_string())
+        } else if path.exists() {
+            std::fs::remove_file(path).map_err(|e| e.to_string())
+        } else {
+            Ok(())
+        }
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let path = dirs::config_dir()
+            .unwrap_or_else(|| dirs::home_dir().unwrap_or_default().join(".config"))
+            .join("autostart/browserroute.desktop");
+        if enabled {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+            std::fs::write(path, format!("[Desktop Entry]\nType=Application\nName=BrowserRoute\nExec=\"{}\"\nX-GNOME-Autostart-enabled=true\n", executable.to_string_lossy().replace('"', "\\\""))).map_err(|e| e.to_string())
+        } else if path.exists() {
+            std::fs::remove_file(path).map_err(|e| e.to_string())
+        } else {
+            Ok(())
+        }
+    }
+}
