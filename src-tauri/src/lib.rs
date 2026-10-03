@@ -47,6 +47,15 @@ fn register_handlers() -> Result<(), String> {
     platform::register_handlers()
 }
 #[tauri::command]
+fn save_settings(settings: config::Settings, state: State<AppState>) -> Result<(), String> {
+    state
+        .config
+        .lock()
+        .map_err(|_| "configuration lock poisoned")?
+        .settings = settings;
+    persist(&state)
+}
+#[tauri::command]
 fn detect_browsers(state: State<AppState>) -> Result<Vec<Browser>, String> {
     let found = discovery::detect();
     {
@@ -344,6 +353,7 @@ pub fn run(start_url: Option<String>) {
             get_platform_status,
             open_default_apps,
             register_handlers,
+            save_settings,
             detect_browsers,
             save_rule,
             delete_rule,
