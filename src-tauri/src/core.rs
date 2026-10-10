@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
-use url::Url;
+use url::{Host, Url};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -143,6 +143,11 @@ pub fn validate_rule(rule: &Rule) -> Result<(), RouteError> {
                 }
             }
             Condition::PathRegex { value } => {
+                if value.len() > 2_048 {
+                    return Err(RouteError::InvalidCondition(
+                        "regex pattern exceeds 2048 characters".into(),
+                    ));
+                }
                 Regex::new(value).map_err(|e| {
                     RouteError::InvalidCondition(format!("invalid safe regex: {e}"))
                 })?;
@@ -166,11 +171,17 @@ pub fn validate_rule(rule: &Rule) -> Result<(), RouteError> {
 }
 
 fn validate_host(host: &str) -> Result<(), RouteError> {
-    if host.is_empty() || host.contains('/') || host.contains('*') || host.contains(' ') {
+    if host.is_empty()
+        || host.trim() != host
+        || host.contains(['/', '*', ' ', '?', '#', '@', ':'])
+        || host.starts_with('.')
+        || host.ends_with('.')
+    {
         return Err(RouteError::InvalidCondition(format!(
             "invalid host: {host}"
         )));
     }
+    Host::parse(host).map_err(|_| RouteError::InvalidCondition(format!("invalid host: {host}")))?;
     Ok(())
 }
 
@@ -236,6 +247,9 @@ pub fn redact_url(url: &Url) -> String {
         return "mailto:…".into();
     }
     let mut safe = url.clone();
+    let _ = safe.set_username("");
+    let _ = safe.set_password(None);
+    safe.set_fragment(None);
     let sensitive = [
         "token", "code", "secret", "password", "session", "key", "auth", "state",
     ];
@@ -377,6 +391,16 @@ mod tests {
         );
     }
     #[test]
+    fn sensitive_url_components_are_not_retained_in_history() {
+        let u =
+            parse_routable_url("https://user:password@example.test/path?token=abc#secret").unwrap();
+        let safe = redact_url(&u);
+        assert!(!safe.contains("user"));
+        assert!(!safe.contains("password"));
+        assert!(!safe.contains("secret"));
+        assert!(safe.contains("token=%5Bredacted%5D"));
+    }
+    #[test]
     fn blocks_file_urls() {
         assert!(matches!(
             parse_routable_url("file:///etc/passwd"),
@@ -440,5 +464,17 @@ mod tests {
                 "https://example.test/"
             ]
         );
+    }
+    #[test]
+    fn malformed_hosts_and_unbounded_regex_are_rejected() {
+        let mut rule = sample_rules().remove(0);
+        rule.conditions = vec![Condition::HostEquals {
+            value: "github.com:443".into(),
+        }];
+        assert!(validate_rule(&rule).is_err());
+        rule.conditions = vec![Condition::PathRegex {
+            value: "a".repeat(2_049),
+        }];
+        assert!(validate_rule(&rule).is_err());
     }
 }

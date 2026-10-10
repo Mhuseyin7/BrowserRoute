@@ -6,13 +6,22 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub const CURRENT_CONFIG_VERSION: u32 = 1;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
+    #[serde(default = "default_history_enabled")]
     pub history_enabled: bool,
+    #[serde(default)]
     pub store_full_urls: bool,
+    #[serde(default)]
     pub paused_until: Option<DateTime<Utc>>,
+    #[serde(default)]
     pub launch_at_login: bool,
+}
+fn default_history_enabled() -> bool {
+    true
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -37,6 +46,7 @@ pub struct HistoryEntry {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
+    #[serde(default = "current_config_version")]
     pub version: u32,
     pub rules: Vec<Rule>,
     #[serde(default)]
@@ -46,10 +56,13 @@ pub struct AppConfig {
     #[serde(default)]
     pub history: Vec<HistoryEntry>,
 }
+fn current_config_version() -> u32 {
+    CURRENT_CONFIG_VERSION
+}
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            version: 1,
+            version: CURRENT_CONFIG_VERSION,
             rules: sample_rules(),
             browsers: vec![],
             settings: Settings::default(),
@@ -57,7 +70,6 @@ impl Default for AppConfig {
         }
     }
 }
-
 pub fn config_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -68,8 +80,16 @@ pub fn load(path: &Path) -> io::Result<AppConfig> {
     if !path.exists() {
         return Ok(AppConfig::default());
     }
-    match serde_json::from_slice(&fs::read(path)?) {
-        Ok(v) => Ok(v),
+    match serde_json::from_slice::<AppConfig>(&fs::read(path)?) {
+        Ok(mut config) => {
+            if config.version > CURRENT_CONFIG_VERSION {
+                return Err(io::Error::other(
+                    "configuration was created by a newer BrowserRoute version",
+                ));
+            }
+            config.version = CURRENT_CONFIG_VERSION;
+            Ok(config)
+        }
         Err(e) => {
             let bad = path.with_extension(format!("corrupt-{}.json", Utc::now().timestamp()));
             fs::rename(path, bad)?;
