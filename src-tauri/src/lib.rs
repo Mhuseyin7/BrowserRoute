@@ -207,11 +207,13 @@ fn route_url(raw: String, state: State<AppState>) -> Result<Option<core::RouteAc
             .lock()
             .map_err(|_| "configuration lock poisoned")?;
         if c.settings.history_enabled {
+            let full_url = c.settings.store_full_urls.then(|| core::redact_url(&url));
             c.history.insert(
                 0,
                 HistoryEntry {
                     timestamp: chrono::Utc::now(),
                     host: url.host_str().unwrap_or("mailto").to_string(),
+                    full_url,
                     rule_id: matched_rule_id,
                     browser_id: browser.id,
                 },
@@ -289,11 +291,16 @@ fn launch_choice(
         .lock()
         .map_err(|_| "configuration lock poisoned")?;
     if config.settings.history_enabled {
+        let full_url = config
+            .settings
+            .store_full_urls
+            .then(|| core::redact_url(&url));
         config.history.insert(
             0,
             HistoryEntry {
                 timestamp: chrono::Utc::now(),
                 host: url.host_str().unwrap_or("mailto").to_string(),
+                full_url,
                 rule_id: remembered_rule_id,
                 browser_id,
             },

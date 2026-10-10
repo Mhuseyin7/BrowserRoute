@@ -13,5 +13,5 @@ export interface Action { browserId: string; profile?: string; private: boolean 
 export interface Rule { id: string; name: string; enabled: boolean; priority: number; conditionMode: "all" | "any"; conditions: Condition[]; action: Action; createdAt: string; updatedAt: string }
 export interface Profile { id: string; name: string; path?: string }
 export interface Browser { id: string; name: string; executable: string; kind: string; profiles: Profile[] }
-export interface Config { version: number; rules: Rule[]; browsers: Browser[]; settings: { historyEnabled: boolean; storeFullUrls: boolean; launchAtLogin: boolean; pausedUntil?: string }; history: { timestamp: string; host: string; browserId: string }[] }
+export interface Config { version: number; rules: Rule[]; browsers: Browser[]; settings: { historyEnabled: boolean; storeFullUrls: boolean; launchAtLogin: boolean; pausedUntil?: string }; history: { timestamp: string; host: string; fullUrl?: string; browserId: string }[] }
 export interface Simulation { normalizedUrl: string; matches: Rule[]; result?: Action }

@@ -29,6 +29,8 @@ impl Default for Settings {
 pub struct HistoryEntry {
     pub timestamp: DateTime<Utc>,
     pub host: String,
+    #[serde(default)]
+    pub full_url: Option<String>,
     pub rule_id: Option<String>,
     pub browser_id: String,
 }
