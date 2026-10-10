@@ -66,12 +66,19 @@ fn save_settings(settings: config::Settings, state: State<AppState>) -> Result<(
 }
 #[tauri::command]
 fn detect_browsers(state: State<AppState>) -> Result<Vec<Browser>, String> {
-    let found = discovery::detect();
+    let mut found = discovery::detect();
     {
         let mut c = state
             .config
             .lock()
             .map_err(|_| "configuration lock poisoned")?;
+        let custom: Vec<Browser> = c
+            .browsers
+            .iter()
+            .filter(|browser| browser.kind == core::BrowserKind::Custom)
+            .cloned()
+            .collect();
+        found.extend(custom);
         c.browsers = found.clone();
     }
     persist(&state)?;
@@ -160,7 +167,7 @@ fn find_conflicts(rule: Rule, state: State<AppState>) -> Result<Vec<Rule>, Strin
 #[tauri::command]
 fn route_url(raw: String, state: State<AppState>) -> Result<Option<core::RouteAction>, String> {
     let url = parse_routable_url(&raw).map_err(|e| e.to_string())?;
-    let (result, browser) = {
+    let (result, browser, matched_rule_id) = {
         let c = state
             .config
             .lock()
@@ -183,7 +190,12 @@ fn route_url(raw: String, state: State<AppState>) -> Result<Option<core::RouteAc
             .as_ref()
             .and_then(|a| c.browsers.iter().find(|b| b.id == a.browser_id))
             .cloned();
-        (sim.result, b)
+        let matched_rule_id = sim.matches.first().map(|rule| rule.id.to_string());
+        if sim.result.is_some() && b.is_none() {
+            (None, None, None)
+        } else {
+            (sim.result, b, matched_rule_id)
+        }
     };
     if let (Some(action), Some(browser)) = (&result, browser) {
         Command::new(&browser.executable)
@@ -200,7 +212,7 @@ fn route_url(raw: String, state: State<AppState>) -> Result<Option<core::RouteAc
                 HistoryEntry {
                     timestamp: chrono::Utc::now(),
                     host: url.host_str().unwrap_or("mailto").to_string(),
-                    rule_id: None,
+                    rule_id: matched_rule_id,
                     browser_id: browser.id,
                 },
             );
@@ -243,7 +255,7 @@ fn launch_choice(
         .args(launch_arguments(&action, &browser, &url))
         .spawn()
         .map_err(|e| e.to_string())?;
-    if remember {
+    let remembered_rule_id = if remember {
         let host = url
             .host_str()
             .ok_or_else(|| "URL has no host".to_string())?;
@@ -261,13 +273,34 @@ fn launch_choice(
             created_at: now,
             updated_at: now,
         };
+        let rule_id = rule.id.to_string();
         state
             .config
             .lock()
             .map_err(|_| "configuration lock poisoned")?
             .rules
             .push(rule);
+        Some(rule_id)
+    } else {
+        None
+    };
+    let mut config = state
+        .config
+        .lock()
+        .map_err(|_| "configuration lock poisoned")?;
+    if config.settings.history_enabled {
+        config.history.insert(
+            0,
+            HistoryEntry {
+                timestamp: chrono::Utc::now(),
+                host: url.host_str().unwrap_or("mailto").to_string(),
+                rule_id: remembered_rule_id,
+                browser_id,
+            },
+        );
+        config.history.truncate(200);
     }
+    drop(config);
     persist(&state)
 }
 #[tauri::command]
