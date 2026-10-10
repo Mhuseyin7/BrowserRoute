@@ -57,21 +57,64 @@ pub fn register_handlers() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         let exe = executable.to_string_lossy().replace('"', "");
-        for scheme in ["http", "https"] {
-            let command = format!("\"{exe}\" \"%1\"");
-            let key = format!("HKCU\\Software\\Classes\\{scheme}\\shell\\open\\command");
-            std::process::Command::new("reg.exe")
-                .args(["ADD", &key, "/ve", "/d", &command, "/f"])
+        let command = format!("\"{exe}\" \"%1\"");
+        let add = |key: &str, name: Option<&str>, value: &str| -> Result<(), String> {
+            let mut args = vec!["ADD", key];
+            if let Some(name) = name {
+                args.extend(["/v", name]);
+            } else {
+                args.push("/ve");
+            }
+            args.extend(["/t", "REG_SZ", "/d", value, "/f"]);
+            let status = std::process::Command::new("reg.exe")
+                .args(args)
                 .status()
-                .map_err(|e| e.to_string())
-                .and_then(|status| {
-                    if status.success() {
-                        Ok(())
-                    } else {
-                        Err(format!("reg.exe failed for {scheme}"))
-                    }
-                })?;
+                .map_err(|e| e.to_string())?;
+            if status.success() {
+                Ok(())
+            } else {
+                Err(format!("reg.exe failed while registering {key}"))
+            }
+        };
+        // Register a separate ProgID and Capabilities entry. Windows Default Apps can
+        // offer BrowserRoute without silently overwriting the user's current handler.
+        add(
+            "HKCU\\Software\\Classes\\BrowserRoute.Url",
+            None,
+            "BrowserRoute URL",
+        )?;
+        add(
+            "HKCU\\Software\\Classes\\BrowserRoute.Url",
+            Some("URL Protocol"),
+            "",
+        )?;
+        add(
+            "HKCU\\Software\\Classes\\BrowserRoute.Url\\shell\\open\\command",
+            None,
+            &command,
+        )?;
+        add(
+            "HKCU\\Software\\BrowserRoute\\Capabilities",
+            Some("ApplicationName"),
+            "BrowserRoute",
+        )?;
+        add(
+            "HKCU\\Software\\BrowserRoute\\Capabilities",
+            Some("ApplicationDescription"),
+            "Local-first smart URL router",
+        )?;
+        for scheme in ["http", "https"] {
+            add(
+                "HKCU\\Software\\BrowserRoute\\Capabilities\\URLAssociations",
+                Some(scheme),
+                "BrowserRoute.Url",
+            )?;
         }
+        add(
+            "HKCU\\Software\\RegisteredApplications",
+            Some("BrowserRoute"),
+            "Software\\BrowserRoute\\Capabilities",
+        )?;
         return Ok(());
     }
     #[cfg(target_os = "macos")]
@@ -134,11 +177,23 @@ pub fn set_launch_at_login(enabled: bool) -> Result<(), String> {
                     }
                 })
         } else {
-            std::process::Command::new("reg.exe")
+            let exists = std::process::Command::new("reg.exe")
+                .args(["QUERY", key, "/v", "BrowserRoute"])
+                .status()
+                .map_err(|e| e.to_string())?
+                .success();
+            if !exists {
+                return Ok(());
+            }
+            let status = std::process::Command::new("reg.exe")
                 .args(["DELETE", key, "/v", "BrowserRoute", "/f"])
                 .status()
-                .map_err(|e| e.to_string())
-                .map(|_| ())
+                .map_err(|e| e.to_string())?;
+            if status.success() {
+                Ok(())
+            } else {
+                Err("could not disable Windows startup".into())
+            }
         }
     }
     #[cfg(target_os = "macos")]

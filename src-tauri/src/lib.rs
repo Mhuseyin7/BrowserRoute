@@ -48,7 +48,15 @@ fn register_handlers() -> Result<(), String> {
 }
 #[tauri::command]
 fn save_settings(settings: config::Settings, state: State<AppState>) -> Result<(), String> {
-    platform::set_launch_at_login(settings.launch_at_login)?;
+    let current_launch_at_login = state
+        .config
+        .lock()
+        .map_err(|_| "configuration lock poisoned")?
+        .settings
+        .launch_at_login;
+    if current_launch_at_login != settings.launch_at_login {
+        platform::set_launch_at_login(settings.launch_at_login)?;
+    }
     state
         .config
         .lock()
